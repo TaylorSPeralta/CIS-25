@@ -1,0 +1,72 @@
+//
+//
+//
+#include <iostream>
+#include <string>
+using namespace std;
+
+//struct
+
+struct Patient {
+    int id;
+    string name;
+    int age;
+    string reason;
+};
+
+int main() {
+    // Regular variable
+    Patient patient1;
+    string chose1;
+
+    // assigning values inputs and user interface
+
+    cout << "Does you or the patient have a patient id? (Y/n)" << endl;
+    cin >> chose1;
+
+    while (true){
+    if (chose1 == "Y" || chose1 == "y") {
+        cout << "Enter Patient ID: " << endl;
+        cin >> patient1.id;
+        break;
+    }
+    else if (chose1 == "n" || chose1 == "N") {
+        cout << "Your temporary Patient ID is 101" << endl;
+        patient1.id = 101;
+        break;
+    }
+    else {
+        cout << "Invalid entry \n Try again" << endl;
+        cin >> chose1;
+    }
+    }
+    // writing directly into the regular varible patient1
+    cout << "Enter the patient's name: " << endl;
+    cin.ignore();
+    getline(cin, patient1.name);
+    cout << "Enter the Patient's age: " << endl;
+    cin >> patient1.age;
+    cout << "Why are you here today?: " << endl;
+    cin.ignore();
+    getline(cin, patient1.reason);
+    
+
+
+    //Pointer "p" is storing address of patient1 "&"" is meaning the address of patient1
+    Patient*p = &patient1;
+
+    // Displaying the inputed information in patient1 by going to the address (using the pointer)
+    // of where the information was stored and reading it
+    // "->"" follows the address in p to reach patient1, then reads the field\
+    
+    cout << "Patient's ID: "<< p->id << endl;
+    cout << "Name of patient: " << p->name << endl;
+    cout << "Age of patient: " << p->age << endl;
+    cout << "Reason for visit: " << p->reason << endl;
+    cout << "Information recieved and application completed" << endl;
+    cout << "Please take a seat and wait for your name to be called." << endl;
+    cout << "Have a nice day" << endl;
+
+    return 0;
+
+}
