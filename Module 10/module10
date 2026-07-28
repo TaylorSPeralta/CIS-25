@@ -1,0 +1,90 @@
+//
+// Practice: constructor reads input, destructor saves it to items.txt
+//
+#include <iostream>
+#include <fstream>
+#include <string>
+using namespace std;
+
+// This is the Class
+class billingList {
+    string name;
+    int quantity;
+    float price;
+    float total;
+
+public:
+    // Constructor: gathers the three values from the user
+    billingList() {
+        cout << "Constructor was called" << endl;
+
+        cout << "What is the product name: ";
+        getline(cin, name);              
+
+        cout << "How many units: ";
+        cin >> quantity;
+
+        cout << "What is the price of the item: ";
+        cin >> price;
+        cin.ignore();      
+        
+        total = quantity * price;
+    }
+
+    // Destructor: saves this object's data to items.txt, then reports
+    ~billingList() {
+        ofstream out("billing.txt", ios::app);   // append so records aren't overwritten
+        out << name << "," << quantity << "," << price << "," << total << endl;
+        out.close();
+
+        cout << "Destructor was called - saved " << name << " to items.txt" << endl;
+    }
+};
+
+
+
+int main() {
+
+    // variables
+    int option;
+
+    while (true) {
+        cout << "=== Menu ===" << endl;
+        cout << "1. To input new materials to bill" << endl;
+        cout << "2. To see current items" << endl;
+        cout << "3. To exit" << endl;
+        cin >> option;
+        cin.ignore();
+
+        if (option == 1) {
+            billingList b;
+        }   // destructor comes in
+
+        else if (option ==2) {
+            ifstream in("billing.txt");
+            if (!in) {
+                cout << "No billing file found." << endl;
+            }
+            else {
+                string name, qtyStr, priceStr, totalStr;
+                // reads the comma seperated fields
+                while (getline(in, name, ',') &&
+               getline(in, qtyStr, ',') &&
+               getline(in, priceStr, ',') &&
+               getline(in, totalStr)){
+                cout << "item: " << name << "\t qty: " << qtyStr << "\t price: " << priceStr << "\t total: " << totalStr << endl;
+               }
+                in.close();
+            }
+        }
+
+        else if (option == 3){
+            break;
+        }
+
+        else {
+            cout << "error" << endl;
+        }
+    }
+        return 0;
+}                // destructor runs here: writes the record to items.txt
