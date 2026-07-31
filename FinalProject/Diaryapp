@@ -1,0 +1,544 @@
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <cmath>
+#include <limits>
+#include <sstream>
+#include <vector>
+using namespace std;
+
+
+// === Input helpers ===
+
+// Reads an integer safely. If the user types letters, cin sets its fail flag
+// and leaves the bad text in the buffer, which would loop forever. clear()
+// resets the flag and ignore() throws out the leftover text.
+// The ignore() on the success path eats the newline so a later getline() works.
+int readInt(string prompt) {
+    int value;
+    while (true) {
+        cout << prompt << endl;
+        cin >> value;
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "That wasn't a number. Please try again." << endl;
+        } else {
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            return value;
+        }
+    }
+}
+
+// Same idea, but keeps asking until the number falls inside a range.
+int readIntRange(string prompt, int low, int high, string rangeMessage) {
+    while (true) {
+        int value = readInt(prompt);
+        if (value >= low && value <= high) {
+            return value;
+        }
+        cout << rangeMessage << endl;
+    }
+}
+
+// Reads a line of text and refuses to accept an empty one.
+// Also swaps out '#' because that character separates the fields in the file.
+string readText(string prompt) {
+    string text;
+    while (true) {
+        cout << prompt << endl;
+        getline(cin, text);
+        if (text == "") {
+            cout << "Please write at least something." << endl;
+            continue;
+        }
+        for (int i = 0; i < text.size(); i++) {
+            if (text[i] == '#') {
+                text[i] = ' ';
+            }
+        }
+        return text;
+    }
+}
+
+
+// === Diary main class ===
+class diary {
+    vector<string> entries;
+
+    // turns each line or entry of the diary into a vector of its 7 fields
+    vector<string> splitLine(string line) {
+        stringstream ss(line);
+        string field;
+        vector<string> fields;
+        while (getline(ss, field, '#')) {
+            fields.push_back(field);
+        }
+        return fields;
+    }
+
+    // prints the shared 5 lines of an entry
+    void printEntry(string line) {
+        vector<string> fields = splitLine(line);
+        if (fields.size() < 7) {
+            cout << "This entry is malformed." << endl;
+            return;
+        }
+        cout << "Date: " << fields[1] << "/" << fields[2] << "/" << fields[0] << endl;
+        cout << "Mood score: " << fields[3] << endl;
+        cout << "Journal entry: " << fields[4] << endl;
+        cout << "Good things this day: " << fields[5] << endl;
+        cout << "The challenges you faced: " << fields[6] << endl;
+    }
+
+public:
+    // loads the whole file once when the program starts
+    diary() {
+        ifstream in("diaryApp.txt");
+        string line;
+        while (getline(in, line)) {
+            entries.push_back(line);
+        }
+    }
+
+    // keeps the in-memory vector in sync when a new entry is written
+    void addEntry(string line) {
+        entries.push_back(line);
+    }
+
+    string daySearch(int month, int day, int year) {
+        // the trailing # matters: without it, searching day 1 would also
+        // match day 12, day 15, and so on
+        string target = to_string(year) + "#" + to_string(month) + "#" + to_string(day) + "#";
+
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries[i].rfind(target, 0) != 0)
+                continue;
+
+            vector<string> fields = splitLine(entries[i]);
+            if (fields.size() < 7)
+                return "That entry is malformed.";
+
+            int score = stoi(fields[3]);
+
+            return "Date: " + fields[1] + "/" + fields[2] + "/" + fields[0] + "\n"
+             + "Mood Score: " + to_string(score) + "\n"
+             + "Journal Entry: " + fields[4] + "\n"
+             + "Your favorite things about the day: " + fields[5] + "\n"
+             + "Your challenges: " + fields[6] + "\n";
+        }
+        return "no entry found";
+    }
+
+    void findMonth(int month, int year) {
+        string target = to_string(year) + "#" + to_string(month) + "#";
+        vector<string> specificMonth;
+
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries[i].rfind(target, 0) == 0) {
+                specificMonth.push_back(entries[i]);
+            }
+        }
+        if (specificMonth.empty()) {
+            cout << "No entries found for that month." << endl;
+            return;
+        }
+
+        int sum = 0;
+        int count = 0;
+        int bestIdx = 0;
+        int worstIdx = 0;
+        int bestMood = -1;
+        int worstMood = 101;
+
+        for (int i = 0; i < specificMonth.size(); i++) {
+            vector<string> fields = splitLine(specificMonth[i]);
+            if (fields.size() < 7)
+                continue;
+            int mood = stoi(fields[3]);
+            sum += mood;
+            count++;
+
+            if (mood > bestMood) {
+                bestMood = mood;
+                bestIdx = i;
+            }
+            if (mood < worstMood) {
+                worstMood = mood;
+                worstIdx = i;
+            }
+        }
+        if (count == 0) {
+            cout << "No readable entries for that month." << endl;
+            return;
+        }
+        int mean = sum / count;
+
+        int closestIdx = 0;
+        int closestDist = 1000;
+        for (int i = 0; i < specificMonth.size(); i++) {
+            vector<string> fields = splitLine(specificMonth[i]);
+            if (fields.size() < 7)
+                continue;
+            int mood = stoi(fields[3]);
+            int dist = abs(mood - mean);
+            if (dist < closestDist) {
+                closestDist = dist;
+                closestIdx = i;
+            }
+        }
+
+        cout << "Average mood this month: " << mean << endl;
+        cout << "Your best day this month:" << endl;
+        printEntry(specificMonth[bestIdx]);
+        cout << "Your worst day this month:" << endl;
+        printEntry(specificMonth[worstIdx]);
+        cout << "Your average day this month:" << endl;
+        printEntry(specificMonth[closestIdx]);
+        cout << "\n";
+    }
+
+    void findYear(int year) {
+        string target = to_string(year) + "#";
+        vector<string> specificYear;
+
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries[i].rfind(target, 0) == 0) {
+                specificYear.push_back(entries[i]);
+            }
+        }
+        if (specificYear.empty()) {
+            cout << "No entries found for that year." << endl;
+            return;
+        }
+
+        int sum = 0;
+        int count = 0;
+        int bestIdx = 0;
+        int worstIdx = 0;
+        int bestMood = -1;
+        int worstMood = 101;
+
+        for (int i = 0; i < specificYear.size(); i++) {
+            vector<string> fields = splitLine(specificYear[i]);
+            if (fields.size() < 7)
+                continue;
+            int mood = stoi(fields[3]);
+            sum += mood;
+            count++;
+
+            if (mood > bestMood) {
+                bestMood = mood;
+                bestIdx = i;
+            }
+            if (mood < worstMood) {
+                worstMood = mood;
+                worstIdx = i;
+            }
+        }
+        if (count == 0) {
+            cout << "No readable entries for that year." << endl;
+            return;
+        }
+        int mean = sum / count;
+
+        int closestIdx = 0;
+        int closestDist = 1000;
+        for (int i = 0; i < specificYear.size(); i++) {
+            vector<string> fields = splitLine(specificYear[i]);
+            if (fields.size() < 7)
+                continue;
+            int mood = stoi(fields[3]);
+            int dist = abs(mood - mean);
+            if (dist < closestDist) {
+                closestDist = dist;
+                closestIdx = i;
+            }
+        }
+
+        cout << "Average mood this year: " << mean << endl;
+        cout << "Your best day this year:" << endl;
+        printEntry(specificYear[bestIdx]);
+        cout << "Your worst day this year:" << endl;
+        printEntry(specificYear[worstIdx]);
+        cout << "Your average day this year:" << endl;
+        printEntry(specificYear[closestIdx]);
+        cout << "\n";
+    }
+
+    // best mood day in the WHOLE journal
+    void bestDay() {
+        if (entries.empty()) {
+            cout << "No entries yet." << endl;
+            return;
+        }
+        int bestIdx = -1;
+        int bestMood = -1;
+        for (int i = 0; i < entries.size(); i++) {
+            vector<string> fields = splitLine(entries[i]);
+            if (fields.size() < 7)
+                continue;
+            int mood = stoi(fields[3]);
+            if (mood > bestMood) {
+                bestMood = mood;
+                bestIdx = i;
+            }
+        }
+        if (bestIdx == -1) {
+            cout << "No readable entries yet." << endl;
+            return;
+        }
+        printEntry(entries[bestIdx]);
+    }
+
+    // worst mood day in the WHOLE journal
+    void worstDay() {
+        if (entries.empty()) {
+            cout << "No entries yet." << endl;
+            return;
+        }
+        int worstIdx = -1;
+        int worstMood = 101;
+        for (int i = 0; i < entries.size(); i++) {
+            vector<string> fields = splitLine(entries[i]);
+            if (fields.size() < 7)
+                continue;
+            int mood = stoi(fields[3]);
+            if (mood < worstMood) {
+                worstMood = mood;
+                worstIdx = i;
+            }
+        }
+        if (worstIdx == -1) {
+            cout << "No readable entries yet." << endl;
+            return;
+        }
+        printEntry(entries[worstIdx]);
+    }
+};
+
+
+
+
+// === One diary entry being written by the user ===
+class diaryEntry {
+    int year;
+    int month;
+    int day;
+    int dailyValue;
+    string summary;
+    string favorites;
+    string challenges;
+
+    public:
+    // Constructor: gathers all the values from the user
+    diaryEntry() {
+
+        int edit;
+
+        year  = readIntRange("What year is it?:", 1900, 2200,
+                             "Please enter a realistic year.");
+        month = readIntRange("What month is it? (enter a number 1-12):", 1, 12,
+                             "Months run from 1 to 12.");
+        day   = readIntRange("What day of the month is it?:", 1, 31,
+                             "Days run from 1 to 31.");
+
+        cout << "Out of 0-100 how did you feel today?:" << endl;
+        dailyValue = readInt("Enter your mood score:");
+        while (dailyValue < 0 || dailyValue > 100) {
+            if (dailyValue > 100) {
+                dailyValue = readInt("Incredible day, but let's keep it to the 0-100 range:");
+            } else {
+                dailyValue = readInt("Challenging day, but let's keep it to the 0-100 range:");
+            }
+        }
+
+        cout << "\nNarratives are nice, but try to think of your 5 senses too." << endl;
+        cout << "What did you taste, touch, smell, hear and see, along with the events of the day?" << endl;
+        summary    = readText("What happened today?:");
+        favorites  = readText("What was your favorite thing about today?:");
+        challenges = readText("What was a challenge you faced?:");
+
+        while (true) {
+            cout << "\n--- Review your entry ---\n" << endl;
+            cout << "1. Date: " << year << "-" << month << "-" << day << endl;
+            cout << "2. Mood: " << dailyValue << endl;
+            cout << "3. Summary: " << summary << endl;
+            cout << "4. Favorite: " << favorites << endl;
+            cout << "5. Challenge: " << challenges << endl;
+            cout << "Anything you would like to correct?" << endl;
+
+            edit = readInt("Enter a number to edit that field, or 0 to save:");
+
+            if (edit == 0) break;
+
+            switch (edit) {
+
+                case 1:
+                    cout << "New date:" << endl;
+                    year  = readIntRange("What year is it?:", 1900, 2200,
+                                         "Please enter a realistic year.");
+                    month = readIntRange("What month is it? (enter a number 1-12):", 1, 12,
+                                         "Months run from 1 to 12.");
+                    day   = readIntRange("What day is it?:", 1, 31,
+                                         "Days run from 1 to 31.");
+                    break;
+                case 2:
+                    dailyValue = readIntRange("New mood (0-100):", 0, 100,
+                                              "Please stay inside the 0-100 range.");
+                    break;
+                case 3:
+                    cout << "Remember to think about your senses, to bring you back to this day in the future." << endl;
+                    summary = readText("New summary:");
+                    break;
+                case 4:
+                    favorites = readText("What made you feel good or happy today?:");
+                    break;
+                case 5:
+                    cout << "Think about how you sat with or overcame them." << endl;
+                    challenges = readText("What challenges did you face today?:");
+                    break;
+                default:
+                    cout << "Please pick a number from 0 to 5." << endl;
+                    break;
+            }
+        }
+    }
+
+    // builds the one #-separated line so saving can happen outside this class
+    string toLine() {
+        return to_string(year) + "#" + to_string(month) + "#" + to_string(day)
+             + "#" + to_string(dailyValue) + "#" + summary + "#" + favorites
+             + "#" + challenges;
+    }
+};
+
+
+
+
+int main() {
+    // Normal variables
+    int menu1;
+    int menu2;
+    int choose1;
+    int y; // year
+    int m; // month
+    int d; // day
+
+    diary myDiary;   // loads the whole file ONCE at startup
+
+    // === Menu ===
+
+    while (true) {
+        cout << "\n=== Your Personal Diary Entry Menu ===" << endl;
+        cout << "Please choose an option" << endl;
+        cout << "1. Write in journal" << endl;
+        cout << "2. Read/Search journal" << endl;
+        cout << "3. Look at best/worst days" << endl;
+        cout << "4. Exit" << endl;
+        menu1 = readInt("Your choice:");
+
+        if (menu1 == 1) {
+            diaryEntry entry;
+            string line = entry.toLine();
+
+            ofstream out("diaryApp.txt", ios::app);   // append so records aren't overwritten
+            if (!out) {
+                cout << "Could not open the diary file. Your entry was not saved." << endl;
+            } else {
+                out << line << endl;
+                out.close();
+                myDiary.addEntry(line);   // keep memory in sync with the file
+                cout << "Entry saved." << endl;
+            }
+        }
+
+        // Reading journal
+        else if (menu1 == 2) {
+
+            while (true) {
+                cout << "\nOpening journal" << endl;
+                cout << "What would you like to read?" << endl;
+                cout << "1. Read a specific entry" << endl;
+                cout << "2. Mood rating month view" << endl;
+                cout << "3. Mood rating year view" << endl;
+                cout << "4. Return to main menu" << endl;
+                menu2 = readInt("Your choice:");
+
+                // Searches for the exact year, month and day, then prints that entry
+                if (menu2 == 1) {
+                    y = readIntRange("Enter the year:", 1900, 2200,
+                                     "Please enter a realistic year.");
+                    m = readIntRange("Enter the month:", 1, 12,
+                                     "Months run from 1 to 12.");
+                    d = readIntRange("Enter the day:", 1, 31,
+                                     "Days run from 1 to 31.");
+
+                    cout << myDiary.daySearch(m, d, y) << endl;
+                }
+
+                // Averages the mood of every entry in that month, then shows the
+                // best, worst and closest-to-average day
+                else if (menu2 == 2) {
+                    y = readIntRange("What year are you interested in?:", 1900, 2200,
+                                     "Please enter a realistic year.");
+                    m = readIntRange("What month are you interested in?:", 1, 12,
+                                     "Months run from 1 to 12.");
+
+                    myDiary.findMonth(m, y);
+                }
+
+                // Same idea, but across a whole year
+                else if (menu2 == 3) {
+                    y = readIntRange("What year are you looking into?:", 1900, 2200,
+                                     "Please enter a realistic year.");
+
+                    myDiary.findYear(y);
+                }
+
+                else if (menu2 == 4) {
+                    cout << "Thanks for stopping by!" << endl;
+                    break;
+                }
+
+                else {
+                    cout << "Please choose an integer between 1 and 4." << endl;
+                }
+            }
+        }
+
+        else if (menu1 == 3) {
+            while (true) {
+                choose1 = readInt("Press 1 for best day, 2 for worst day, 3 to go back:");
+                if (choose1 == 1) {
+                    cout << "Your best day recorded in this journal:" << endl;
+                    myDiary.bestDay();
+                }
+                else if (choose1 == 2) {
+                    cout << "Here is your most challenging day recorded:" << endl;
+                    myDiary.worstDay();
+                }
+                else if (choose1 == 3) {
+                    break;   // back to the main menu
+                }
+                else {
+                    cout << "Hmmm, didn't catch that." << endl;
+                    cout << "Please enter the integer 1, 2 or 3." << endl;
+                }
+            }
+        }
+
+        else if (menu1 == 4) {
+            cout << "Your future self will appreciate this entry." << endl;
+            cout << "Until next time... Goodbye!" << endl;
+            break;
+        }
+
+        else {
+            cout << "Didn't quite hear that." << endl;
+            cout << "Please enter an integer between 1 and 4." << endl;
+        }
+    }
+
+    return 0;
+}
